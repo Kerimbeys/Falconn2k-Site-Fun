@@ -1,0 +1,584 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Falconn2K Video Klipleri</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body class="bg-black text-white">
+    <div id="root"></div>
+
+    <script type="text/babel">
+      function VideoClipsPage() {
+        const { useState, useEffect, useRef } = React;
+        const [videos, setVideos] = useState([]);
+        const [selectedVideo, setSelectedVideo] = useState(null);
+        const [videoLink, setVideoLink] = useState('');
+        const [videoTitle, setVideoTitle] = useState('');
+        const [uploaderName, setUploaderName] = useState('');
+        const [category, setCategory] = useState('Genel');
+        const [searchTerm, setSearchTerm] = useState('');
+        const [selectedCategory, setSelectedCategory] = useState('Tümü');
+        const [comments, setComments] = useState([]);
+        const [newComment, setNewComment] = useState('');
+        const [commentAuthor, setCommentAuthor] = useState('');
+        const [adminMode, setAdminMode] = useState(false);
+        const [showPasswordModal, setShowPasswordModal] = useState(false);
+        const [password, setPassword] = useState('');
+        const [loading, setLoading] = useState(false);
+        const fileInputRef = useRef(null);
+        const ADMIN_TOKEN = 'falconn2kadmin';
+
+        const fetchVideos = async () => {
+          try {
+            const params = new URLSearchParams();
+            if (searchTerm) params.append('search', searchTerm);
+            if (selectedCategory !== 'Tümü') params.append('category', selectedCategory);
+
+            const response = await fetch(`/api/videos?${params}`);
+            if (!response.ok) throw new Error('Klipler yüklenemedi');
+            const data = await response.json();
+            setVideos(data);
+          } catch (error) {
+            console.error(error);
+          }
+        };
+
+        const fetchComments = async (videoId) => {
+          try {
+            const response = await fetch(`/api/videos/${videoId}/comments`);
+            if (!response.ok) throw new Error('Yorumlar yüklenemedi');
+            const data = await response.json();
+            setComments(data);
+          } catch (error) {
+            console.error(error);
+          }
+        };
+
+        useEffect(() => {
+          fetchVideos();
+        }, [searchTerm, selectedCategory]);
+
+        const handleFileUpload = async (event) => {
+          const file = event.target.files[0];
+          if (!file || !file.type.startsWith('video/')) return;
+
+          const formData = new FormData();
+          formData.append('videoFile', file);
+          formData.append('title', file.name);
+          formData.append('uploader', uploaderName.trim() || 'Anonim');
+          formData.append('category', category);
+
+          setLoading(true);
+          try {
+            const response = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData,
+            });
+            if (!response.ok) throw new Error('Yükleme sırasında hata oluştu');
+            const newVideo = await response.json();
+            setVideos((prev) => [newVideo, ...prev]);
+            setUploaderName('');
+            setCategory('Genel');
+          } catch (error) {
+            console.error(error);
+            alert('Video yükleme başarısız oldu.');
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        const handleLinkSubmit = async (e) => {
+          e.preventDefault();
+          if (!videoTitle.trim() || !videoLink.trim()) return;
+
+          const payload = {
+            title: videoTitle,
+            url: videoLink,
+            type: 'link',
+            uploader: uploaderName.trim() || 'Anonim',
+            category: category,
+          };
+
+          setLoading(true);
+          try {
+            const response = await fetch('/api/videos', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(payload),
+            });
+            if (!response.ok) throw new Error('Link ekleme başarısız');
+            const newVideo = await response.json();
+            setVideos((prev) => [newVideo, ...prev]);
+            setVideoTitle('');
+            setVideoLink('');
+            setUploaderName('');
+            setCategory('Genel');
+          } catch (error) {
+            console.error(error);
+            alert('Link ekleme sırasında hata oluştu.');
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        const deleteVideo = async (id) => {
+          const confirmDelete = window.confirm('Bu klibi silmek istediğine emin misin?');
+          if (!confirmDelete) return;
+
+          try {
+            const response = await fetch(`/api/videos/${id}`, {
+              method: 'DELETE',
+              headers: {
+                Authorization: `Bearer ${ADMIN_TOKEN}`,
+              },
+            });
+            if (!response.ok) throw new Error('Silme işlemi başarısız');
+            setVideos((prev) => prev.filter((video) => video.id !== id));
+            if (selectedVideo?.id === id) setSelectedVideo(null);
+          } catch (error) {
+            console.error(error);
+            alert('Klip silinemedi.');
+          }
+        };
+
+        const handlePasswordSubmit = (e) => {
+          e.preventDefault();
+          if (password === ADMIN_TOKEN) {
+            setAdminMode(true);
+            setShowPasswordModal(false);
+            setPassword('');
+          } else {
+            alert('Yanlış şifre!');
+            setPassword('');
+          }
+        };
+
+        const logoutAdmin = () => {
+          setAdminMode(false);
+        };
+
+        const handleLike = async (videoId) => {
+          try {
+            const response = await fetch(`/api/videos/${videoId}/like`, {
+              method: 'POST',
+            });
+            if (!response.ok) throw new Error('Beğeni eklenemedi');
+            setVideos((prev) => prev.map((video) =>
+              video.id === videoId ? { ...video, likes: video.likes + 1 } : video
+            ));
+          } catch (error) {
+            console.error(error);
+          }
+        };
+
+        const handleView = async (videoId) => {
+          try {
+            const response = await fetch(`/api/videos/${videoId}/view`, {
+              method: 'POST',
+            });
+            if (!response.ok) throw new Error('Görüntülenme eklenemedi');
+            setVideos((prev) => prev.map((video) =>
+              video.id === videoId ? { ...video, views: video.views + 1 } : video
+            ));
+          } catch (error) {
+            console.error(error);
+          }
+        };
+
+        const handleCommentSubmit = async (e) => {
+          e.preventDefault();
+          if (!newComment.trim() || !commentAuthor.trim() || !selectedVideo) return;
+
+          try {
+            const response = await fetch(`/api/videos/${selectedVideo.id}/comments`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                author: commentAuthor,
+                content: newComment,
+              }),
+            });
+            if (!response.ok) throw new Error('Yorum eklenemedi');
+            const newCommentData = await response.json();
+            setComments((prev) => [newCommentData, ...prev]);
+            setNewComment('');
+            setCommentAuthor('');
+          } catch (error) {
+            console.error(error);
+            alert('Yorum eklenirken hata oluştu.');
+          }
+        };
+
+        const openVideoModal = async (video) => {
+          setSelectedVideo(video);
+          await handleView(video.id);
+          await fetchComments(video.id);
+        };
+
+        const getKickEmbedUrl = (url) => {
+          const kickMatch = url.match(/kick\.com\/(?:[^\/]+\/)??(?:v|video)\/([^\/\?&]+)/);
+          if (kickMatch) {
+            return `https://player.kick.com/${kickMatch[1]}`;
+          }
+          return null;
+        };
+
+        return (
+          <div className="min-h-screen bg-black text-white overflow-hidden">
+            <div className="absolute top-0 left-0 w-96 h-96 bg-red-600/30 blur-3xl rounded-full" />
+            <div className="absolute bottom-0 right-0 w-96 h-96 bg-orange-500/20 blur-3xl rounded-full" />
+
+            <header className="relative z-10 flex items-center justify-between px-6 py-6">
+              <button
+                onClick={() => (window.location.href = 'index.html')}
+                className="text-cyan-400 hover:text-cyan-300 transition font-bold"
+              >
+                ← Ana Sayfa
+              </button>
+              <h1 className="text-3xl md:text-4xl font-black bg-gradient-to-r from-red-400 to-orange-500 text-transparent bg-clip-text">
+                VIDEO KLPLER {adminMode && <span className="text-red-400 text-lg">(ADMIN)</span>}
+              </h1>
+              <div>
+                {adminMode ? (
+                  <button
+                    onClick={logoutAdmin}
+                    className="text-red-400 hover:text-red-300 transition font-bold"
+                  >
+                    🚪 Çıkış
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowPasswordModal(true)}
+                    className="text-orange-400 hover:text-orange-300 transition font-bold"
+                  >
+                    🔐 Admin
+                  </button>
+                )}
+              </div>
+            </header>
+
+            <section className="relative z-10 px-6 max-w-4xl mx-auto pb-12">
+              <div className="bg-zinc-900/70 backdrop-blur-xl rounded-3xl p-8 border border-zinc-800 shadow-2xl">
+                <h2 className="text-2xl font-bold text-center mb-6 text-orange-400">Video Yükle</h2>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Dosya Yükle</h3>
+                    <input
+                      type="text"
+                      placeholder="Adınız..."
+                      value={uploaderName}
+                      onChange={(e) => setUploaderName(e.target.value)}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-orange-500"
+                    />
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-orange-500"
+                    >
+                      <option value="Genel">Genel</option>
+                      <option value="Komik">Komik</option>
+                      <option value="Müzik">Müzik</option>
+                      <option value="Oyun">Oyun</option>
+                      <option value="Eğitim">Eğitim</option>
+                      <option value="Diğer">Diğer</option>
+                    </select>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="video/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full bg-gradient-to-r from-red-600 to-orange-500 py-3 rounded-2xl font-bold hover:opacity-90 transition"
+                      disabled={loading}
+                    >
+                      📁 Video Dosyası Seç
+                    </button>
+                    <p className="text-sm text-zinc-400">MP4, AVI, MOV vb. formatlar desteklenir</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Link Ekle</h3>
+                    <form onSubmit={handleLinkSubmit} className="space-y-3">
+                      <input
+                        type="text"
+                        placeholder="Adınız..."
+                        value={uploaderName}
+                        onChange={(e) => setUploaderName(e.target.value)}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-orange-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Video başlığı..."
+                        value={videoTitle}
+                        onChange={(e) => setVideoTitle(e.target.value)}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-orange-500"
+                      />
+                      <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-orange-500"
+                      >
+                        <option value="Genel">Genel</option>
+                        <option value="Komik">Komik</option>
+                        <option value="Müzik">Müzik</option>
+                        <option value="Oyun">Oyun</option>
+                        <option value="Eğitim">Eğitim</option>
+                        <option value="Diğer">Diğer</option>
+                      </select>
+                      <input
+                        type="url"
+                        placeholder="Video linki (YouTube, Vimeo, Kick vb.)"
+                        value={videoLink}
+                        onChange={(e) => setVideoLink(e.target.value)}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-orange-500"
+                      />
+                      <button
+                        type="submit"
+                        className="w-full bg-gradient-to-r from-red-600 to-orange-500 py-3 rounded-xl font-bold hover:opacity-90 transition"
+                        disabled={loading}
+                      >
+                        ➕ Link Ekle
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="relative z-10 px-6 max-w-7xl mx-auto pb-12">
+              <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+                <h2 className="text-3xl font-black">Video Galerisi ({videos.length})</h2>
+
+                <div className="flex gap-4 flex-wrap">
+                  <input
+                    type="text"
+                    placeholder="Ara..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 outline-none focus:border-orange-500 min-w-48"
+                  />
+
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 outline-none focus:border-orange-500"
+                  >
+                    <option value="Tümü">Tüm Kategoriler</option>
+                    <option value="Genel">Genel</option>
+                    <option value="Komik">Komik</option>
+                    <option value="Müzik">Müzik</option>
+                    <option value="Oyun">Oyun</option>
+                    <option value="Eğitim">Eğitim</option>
+                    <option value="Diğer">Diğer</option>
+                  </select>
+                </div>
+              </div>
+
+              {videos.length === 0 ? (
+                <div className="text-center py-20">
+                  <div className="text-6xl mb-4">🎬</div>
+                  <p className="text-zinc-400 text-lg">Henüz video yüklenmemiş</p>
+                  <p className="text-zinc-500">Yukarıdan video eklemeye başlayın!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {videos.map((video) => (
+                    <div
+                      key={video.id}
+                      className="group bg-zinc-900/80 border border-zinc-800 rounded-3xl overflow-hidden hover:scale-105 transition duration-300 shadow-2xl"
+                    >
+                      <div className="aspect-video bg-zinc-800 flex items-center justify-center">
+                        <button
+                          onClick={() => setSelectedVideo(video)}
+                          className="text-4xl hover:scale-110 transition"
+                        >
+                          ▶️
+                        </button>
+                      </div>
+
+                      <div className="p-5">
+                        <h3 className="text-xl font-bold truncate">{video.title}</h3>
+                        <p className="text-zinc-400 text-sm mt-1">
+                          {video.type === 'file' ? '📁 Yerel Dosya' : video.url.includes('kick.com') ? '🎮 Kick Video' : '🔗 Harici Link'} • {video.uploader}
+                        </p>
+                        <p className="text-zinc-500 text-xs mt-1">
+                          {video.category} • ❤️ {video.likes || 0} • 👁️ {video.views || 0}
+                        </p>
+
+                        <div className="flex gap-2 mt-4">
+                          <button
+                            onClick={() => openVideoModal(video)}
+                            className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 py-2 rounded-xl font-bold hover:opacity-90 transition text-sm"
+                          >
+                            İzle
+                          </button>
+                          <button
+                            onClick={() => handleLike(video.id)}
+                            className="px-3 py-2 bg-pink-600 hover:bg-pink-500 rounded-xl font-bold transition text-sm"
+                          >
+                            👍
+                          </button>
+                          {adminMode && (
+                            <button
+                              onClick={() => deleteVideo(video.id)}
+                              className="px-3 py-2 bg-red-600 hover:bg-red-500 rounded-xl font-bold transition text-sm"
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {selectedVideo && (
+              <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4">
+                <div className="relative w-full max-w-4xl max-h-full bg-zinc-900 rounded-3xl overflow-hidden">
+                  <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+                    <h3 className="text-xl font-bold truncate pr-4">{selectedVideo.title}</h3>
+                    <button
+                      onClick={() => setSelectedVideo(null)}
+                      className="text-zinc-400 hover:text-white transition text-2xl"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="aspect-video">
+                    {getKickEmbedUrl(selectedVideo.url) ? (
+                      <iframe
+                        src={getKickEmbedUrl(selectedVideo.url)}
+                        className="w-full h-full rounded-lg"
+                        frameBorder="0"
+                        allowFullScreen
+                        title={selectedVideo.title}
+                      />
+                    ) : (
+                      <video
+                        src={selectedVideo.url}
+                        controls
+                        autoPlay
+                        className="w-full h-full object-contain"
+                      />
+                    )}
+                  </div>
+
+                  <div className="p-4 border-t border-zinc-800">
+                    <div className="flex items-center gap-4 mb-4">
+                      <button
+                        onClick={() => handleLike(selectedVideo.id)}
+                        className="flex items-center gap-2 bg-pink-600 hover:bg-pink-500 px-4 py-2 rounded-xl font-bold transition"
+                      >
+                        ❤️ {selectedVideo.likes || 0}
+                      </button>
+                      <span className="text-zinc-400">👁️ {selectedVideo.views || 0} görüntülenme</span>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="text-lg font-bold">Yorumlar ({comments.length})</h4>
+
+                      <form onSubmit={handleCommentSubmit} className="space-y-3">
+                        <input
+                          type="text"
+                          placeholder="Adınız..."
+                          value={commentAuthor}
+                          onChange={(e) => setCommentAuthor(e.target.value)}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 outline-none focus:border-orange-500"
+                        />
+                        <textarea
+                          placeholder="Yorumunuz..."
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          rows="3"
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 outline-none focus:border-orange-500 resize-none"
+                        />
+                        <button
+                          type="submit"
+                          className="bg-gradient-to-r from-blue-600 to-purple-500 px-6 py-2 rounded-xl font-bold hover:opacity-90 transition"
+                        >
+                          💬 Yorum Ekle
+                        </button>
+                      </form>
+
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {comments.map((comment) => (
+                          <div key={comment.id} className="bg-zinc-800/50 rounded-xl p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-bold text-orange-400">{comment.author}</span>
+                              <span className="text-xs text-zinc-500">
+                                {new Date(comment.created_at).toLocaleString('tr-TR')}
+                              </span>
+                            </div>
+                            <p className="text-zinc-300">{comment.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showPasswordModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                <div className="relative bg-zinc-900 rounded-3xl p-8 border border-zinc-800 shadow-2xl max-w-md w-full mx-4">
+                  <h3 className="text-2xl font-bold text-center mb-6 text-orange-400">Admin Girişi</h3>
+                  <form onSubmit={handlePasswordSubmit}>
+                    <input
+                      type="password"
+                      placeholder="Şifre girin..."
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-orange-500 mb-4"
+                      autoFocus
+                    />
+                    <div className="flex gap-3">
+                      <button
+                        type="submit"
+                        className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 py-3 rounded-xl font-bold hover:opacity-90 transition"
+                      >
+                        Giriş
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowPasswordModal(false); setPassword(''); }}
+                        className="px-4 py-3 bg-zinc-700 hover:bg-zinc-600 rounded-xl font-bold transition"
+                      >
+                        ptal
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            <footer className="relative z-10 border-t border-zinc-900 px-6 py-10 text-center text-zinc-500">
+              <p>
+                © 2026 Falconn2K • Kullanıcı Video Platformu
+              </p>
+            </footer>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<VideoClipsPage />);
+    </script>
+  </body>
+</html>
