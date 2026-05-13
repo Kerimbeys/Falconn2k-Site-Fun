@@ -19,6 +19,27 @@
         const [isMuted, setIsMuted] = useState(false);
         const audioRef = useRef(null);
 
+        const showRandomImage = () => {
+          const randomMeme = memes[Math.floor(Math.random() * memes.length)];
+          setSelectedImage(randomMeme.img);
+        };
+
+        const toggleAudio = () => {
+          if (!audioRef.current) return;
+          const nextMuted = !isMuted;
+          audioRef.current.muted = nextMuted;
+          setIsMuted(nextMuted);
+
+          if (!nextMuted) {
+            const playPromise = audioRef.current.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(() => {
+                console.warn('Tarayıcı otomatik çalmayı engelledi; kullanıcı etkileşimi bekleniyor.');
+              });
+            }
+          }
+        };
+
         const memes = [
           {
             title: "Legendary Bakış",
@@ -80,18 +101,21 @@
               <div className="mt-10 flex gap-4 flex-wrap justify-center">
                 <button
                   className="px-6 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 transition font-bold shadow-2xl"
-                  onClick={() => window.location.href = 'https://kick.com/falconn2k'}
+                  onClick={() => window.location.href = 'https://www.youtube.com/watch?v=Ba_5P6G79do'}
                 >
                   Efsaneyi İzle
                 </button>
 
-                <button className="px-6 py-3 rounded-2xl border border-zinc-700 hover:bg-zinc-900 transition font-bold">
+                <button
+                  className="px-6 py-3 rounded-2xl border border-zinc-700 hover:bg-zinc-900 transition font-bold"
+                  onClick={showRandomImage}
+                >
                   Random Buton
                 </button>
 
                 <button
                   className="px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-500 transition font-bold shadow-2xl"
-                  onClick={() => { audioRef.current.muted = !isMuted; setIsMuted(!isMuted); }}
+                  onClick={toggleAudio}
                 >
                   {isMuted ? '🔊 Müzik Aç' : '🔇 Müzik Kapat'}
                 </button>
