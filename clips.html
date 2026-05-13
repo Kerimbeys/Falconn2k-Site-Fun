@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
@@ -270,9 +270,9 @@
               <div className="bg-zinc-900/70 backdrop-blur-xl rounded-3xl p-8 border border-zinc-800 shadow-2xl">
                 <h2 className="text-2xl font-bold text-center mb-6 text-orange-400">Video Yükle</h2>
 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6">
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Dosya Yükle</h3>
+                    <h3 className="text-lg font-semibold">Video Yükle (Sadece Dosya)</h3>
                     <input
                       type="text"
                       placeholder="Adınız..."
@@ -306,53 +306,7 @@
                     >
                       📁 Video Dosyası Seç
                     </button>
-                    <p className="text-sm text-zinc-400">MP4, AVI, MOV vb. formatlar desteklenir</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Link Ekle</h3>
-                    <form onSubmit={handleLinkSubmit} className="space-y-3">
-                      <input
-                        type="text"
-                        placeholder="Adınız..."
-                        value={uploaderName}
-                        onChange={(e) => setUploaderName(e.target.value)}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-orange-500"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Video başlığı..."
-                        value={videoTitle}
-                        onChange={(e) => setVideoTitle(e.target.value)}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-orange-500"
-                      />
-                      <select
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-orange-500"
-                      >
-                        <option value="Genel">Genel</option>
-                        <option value="Komik">Komik</option>
-                        <option value="Müzik">Müzik</option>
-                        <option value="Oyun">Oyun</option>
-                        <option value="Eğitim">Eğitim</option>
-                        <option value="Diğer">Diğer</option>
-                      </select>
-                      <input
-                        type="url"
-                        placeholder="Video linki (YouTube, Vimeo, Kick vb.)"
-                        value={videoLink}
-                        onChange={(e) => setVideoLink(e.target.value)}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-orange-500"
-                      />
-                      <button
-                        type="submit"
-                        className="w-full bg-gradient-to-r from-red-600 to-orange-500 py-3 rounded-xl font-bold hover:opacity-90 transition"
-                        disabled={loading}
-                      >
-                        ➕ Link Ekle
-                      </button>
-                    </form>
+                    <p className="text-sm text-zinc-400">MP4, AVI, MOV vb. formatlar desteklenir. Link ekleme geçici olarak kapalı.</p>
                   </div>
                 </div>
               </div>
